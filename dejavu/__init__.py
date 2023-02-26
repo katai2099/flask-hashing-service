@@ -118,7 +118,18 @@ class Dejavu:
         pool.close()
         pool.join()
 
-    def fingerprint_file(self, file_path: str, song_name: str = None) -> None:
+    def isExistHash(self, file_path: str, song_name: str = None) -> bool:
+        song_name_from_path = decoder.get_audio_name_from_path(file_path)
+        song_hash = decoder.unique_hash(file_path)
+        song_name = song_name or song_name_from_path
+        # don't refingerprint already fingerprinted files
+        if song_hash in self.songhashes_set:
+            print(f"{song_name} already fingerprinted, continuing...")
+            # return f"{song_name} already fingerprinted, continuing..."
+            return True
+        return False
+
+    def fingerprint_file(self, file_path: str, song_name: str = None) -> str:
         """
         Given a path to a file the method generates hashes for it and stores them in the database
         for later be queried.
@@ -134,15 +145,14 @@ class Dejavu:
             print(f"{song_name} already fingerprinted, continuing...")
         else:
             song_name, hashes, file_hash = Dejavu._fingerprint_worker(
-                file_path,
-                self.limit,
-                song_name=song_name
+                (file_path,self.limit)
             )
-            sid = self.db.insert_song(song_name, file_hash)
+            sid = self.db.insert_song(song_name, file_hash,len(hashes))
 
             self.db.insert_hashes(sid, hashes)
             self.db.set_song_fingerprinted(sid)
             self.__load_fingerprinted_audio_hashes()
+            return song_hash
 
     def generate_fingerprints(self, samples: List[int], Fs=DEFAULT_FS) -> Tuple[List[Tuple[str, int]], float]:
         f"""
@@ -204,7 +214,7 @@ class Dejavu:
 
             song = {
                 SONG_ID: song_id,
-                SONG_NAME: song_name.encode("utf8"),
+                SONG_NAME: song_name,
                 INPUT_HASHES: queried_hashes,
                 FINGERPRINTED_HASHES: song_hashes,
                 HASHES_MATCHED: hashes_matched,
@@ -214,7 +224,7 @@ class Dejavu:
                 FINGERPRINTED_CONFIDENCE: round(hashes_matched / song_hashes, 2),
                 OFFSET: offset,
                 OFFSET_SECS: nseconds,
-                FIELD_FILE_SHA1: song.get(FIELD_FILE_SHA1, None).encode("utf8")
+                FIELD_FILE_SHA1: song.get(FIELD_FILE_SHA1, None)
             }
 
             songs_result.append(song)

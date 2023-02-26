@@ -31,11 +31,12 @@ def hashAudio():
     audioFile.save(os.path.join(uploads_dir, audioFile.filename))
     #results = djv.recognize(FileRecognizer, uploads_dir+'/'+audioFile.filename)
     
-    # results = djv.fingerprint_file(uploads_dir+'/'+audioFile.filename)
-    # isExist = djv.isExistHash(uploads_dir+'/'+audioFile.filename)
-    # if(isExist):
-        # return str(f"{audioFile.filename.split('.mp3')[0]} already fingerprinted, continuing..."), status.HTTP_400_BAD_REQUEST
-    results = djv.recognize(FileRecognizer, uploads_dir+'/'+audioFile.filename)
+    
+    isExist = djv.isExistHash(uploads_dir+'/'+audioFile.filename)
+    if(isExist):
+        return str(f"{audioFile.filename.split('.mp3')[0]} already fingerprinted, continuing..."), status.HTTP_400_BAD_REQUEST
+    # results = djv.recognize(FileRecognizer, uploads_dir+'/'+audioFile.filename)
+    results = djv.fingerprint_file(uploads_dir+'/'+audioFile.filename)
     # print(results)
     return str(results)
    
