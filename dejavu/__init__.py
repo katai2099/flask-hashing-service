@@ -91,10 +91,12 @@ class Dejavu:
             filenames_to_fingerprint.append(filename)
 
         # Prepare _fingerprint_worker input
-        worker_input = list(zip(filenames_to_fingerprint, [self.limit] * len(filenames_to_fingerprint)))
+        worker_input = list(zip(filenames_to_fingerprint, [
+                            self.limit] * len(filenames_to_fingerprint)))
 
         # Send off our tasks
-        iterator = pool.imap_unordered(Dejavu._fingerprint_worker, worker_input)
+        iterator = pool.imap_unordered(
+            Dejavu._fingerprint_worker, worker_input)
 
         # Loop till we have all of them
         while True:
@@ -118,16 +120,15 @@ class Dejavu:
         pool.close()
         pool.join()
 
-    def isExistHash(self, file_path: str, song_name: str = None) -> bool:
+    def isExistHash(self, file_path: str, song_name: str = None) -> str:
         song_name_from_path = decoder.get_audio_name_from_path(file_path)
         song_hash = decoder.unique_hash(file_path)
         song_name = song_name or song_name_from_path
         # don't refingerprint already fingerprinted files
         if song_hash in self.songhashes_set:
-            print(f"{song_name} already fingerprinted, continuing...")
-            # return f"{song_name} already fingerprinted, continuing..."
-            return True
-        return False
+            print(f"{song_name} already fingerprinted, its hash id is {song_hash}")
+            return song_hash
+        return ""
 
     def fingerprint_file(self, file_path: str, song_name: str = None) -> str:
         """
@@ -145,9 +146,9 @@ class Dejavu:
             print(f"{song_name} already fingerprinted, continuing...")
         else:
             song_name, hashes, file_hash = Dejavu._fingerprint_worker(
-                (file_path,self.limit)
+                (file_path, self.limit)
             )
-            sid = self.db.insert_song(song_name, file_hash,len(hashes))
+            sid = self.db.insert_song(song_name, file_hash, len(hashes))
 
             self.db.insert_hashes(sid, hashes)
             self.db.set_song_fingerprinted(sid)
@@ -197,19 +198,23 @@ class Dejavu:
         """
         # count offset occurrences per song and keep only the maximum ones.
         sorted_matches = sorted(matches, key=lambda m: (m[0], m[1]))
-        counts = [(*key, len(list(group))) for key, group in groupby(sorted_matches, key=lambda m: (m[0], m[1]))]
+        counts = [(*key, len(list(group))) for key,
+                  group in groupby(sorted_matches, key=lambda m: (m[0], m[1]))]
         songs_matches = sorted(
-            [max(list(group), key=lambda g: g[2]) for key, group in groupby(counts, key=lambda count: count[0])],
+            [max(list(group), key=lambda g: g[2])
+             for key, group in groupby(counts, key=lambda count: count[0])],
             key=lambda count: count[2], reverse=True
         )
 
         songs_result = []
-        for song_id, offset, _ in songs_matches[0:topn]:  # consider topn elements in the result
+        # consider topn elements in the result
+        for song_id, offset, _ in songs_matches[0:topn]:
             song = self.db.get_song_by_id(song_id)
 
             song_name = song.get(SONG_NAME, None)
             song_hashes = song.get(FIELD_TOTAL_HASHES, None)
-            nseconds = round(float(offset) / DEFAULT_FS * DEFAULT_WINDOW_SIZE * DEFAULT_OVERLAP_RATIO, 5)
+            nseconds = round(float(offset) / DEFAULT_FS *
+                             DEFAULT_WINDOW_SIZE * DEFAULT_OVERLAP_RATIO, 5)
             hashes_matched = dedup_hashes[song_id]
 
             song = {
@@ -246,7 +251,8 @@ class Dejavu:
 
         song_name, extension = os.path.splitext(os.path.basename(file_name))
 
-        fingerprints, file_hash = Dejavu.get_file_fingerprints(file_name, limit, print_output=True)
+        fingerprints, file_hash = Dejavu.get_file_fingerprints(
+            file_name, limit, print_output=True)
 
         return song_name, fingerprints, file_hash
 
@@ -257,12 +263,14 @@ class Dejavu:
         channel_amount = len(channels)
         for channeln, channel in enumerate(channels, start=1):
             if print_output:
-                print(f"Fingerprinting channel {channeln}/{channel_amount} for {file_name}")
+                print(
+                    f"Fingerprinting channel {channeln}/{channel_amount} for {file_name}")
 
             hashes = fingerprint(channel, Fs=fs)
 
             if print_output:
-                print(f"Finished channel {channeln}/{channel_amount} for {file_name}")
+                print(
+                    f"Finished channel {channeln}/{channel_amount} for {file_name}")
 
             fingerprints |= set(hashes)
 

@@ -1,16 +1,15 @@
 from flask import Flask, request, jsonify
 from flask_api import status
-# from PIL import Image
+from PIL import Image
 from dejavu.logic.recognizer.file_recognizer import FileRecognizer
-# import imagehash
-# import tlsh
 from dejavu import Dejavu
 import os
 
 app = Flask(__name__)
 
-uploads_dir = os.path.join(app.instance_path, 'audio')
-os.makedirs(uploads_dir, exist_ok=True)
+audio_uploads_dir = os.path.join(app.instance_path, 'audio')
+os.makedirs(audio_uploads_dir, exist_ok=True)
+
 
 config = {
     "database": {
@@ -25,20 +24,46 @@ config = {
 djv = Dejavu(config)
 
 
-@app.route("/hash/audio",methods=['POST'])
+@app.route("/hash/audio", methods=['POST'])
 def hashAudio():
     audioFile = request.files.get("audio")
-    audioFile.save(os.path.join(uploads_dir, audioFile.filename))
-    #results = djv.recognize(FileRecognizer, uploads_dir+'/'+audioFile.filename)
-    
-    
-    isExist = djv.isExistHash(uploads_dir+'/'+audioFile.filename)
-    if(isExist):
-        return str(f"{audioFile.filename.split('.mp3')[0]} already fingerprinted, continuing..."), status.HTTP_400_BAD_REQUEST
-    # results = djv.recognize(FileRecognizer, uploads_dir+'/'+audioFile.filename)
-    results = djv.fingerprint_file(uploads_dir+'/'+audioFile.filename)
-    # print(results)
-    return str(results)
-   
-   # djv.fingerprint_directory(uploads_dir, [".mp3"])
-    
+    audioFile.save(os.path.join(audio_uploads_dir, audioFile.filename))
+    # results = djv.recognize(FileRecognizer, audio_uploads_dir+'/'+audioFile.filename)
+    # file already existed
+    existingHash = djv.isExistHash(audio_uploads_dir+'/'+audioFile.filename)
+    if (existingHash != ""):
+        return jsonify(existingHash), status.HTTP_400_BAD_REQUEST
+    # check if file duplicate in database
+    recognizedLists = djv.recognize(
+        FileRecognizer, audio_uploads_dir+'/'+audioFile.filename)
+    # print(recognizedLists)
+    recognizedResults = list(recognizedLists['results'])
+    for song in recognizedResults:
+        if (song['input_confidence'] > 0.8):
+            print(f"audio already existed with hash id {song['file_sha1']}")
+            return jsonify(song['file_sha1']), status.HTTP_400_BAD_REQUEST
+    fileHash = djv.fingerprint_file(audio_uploads_dir+'/'+audioFile.filename)
+    print(fileHash)
+    return jsonify(fileHash)
+
+   # djv.fingerprint_directory(audio_uploads_dir, [".mp3"])
+
+
+@app.route("/hash/recognise", methods=['POST'])
+def recognize():
+    audioFile = request.files.get("audio")
+    audioFile.save(os.path.join(audio_uploads_dir, audioFile.filename))
+    # file already existed
+    existingHash = djv.isExistHash(audio_uploads_dir+'/'+audioFile.filename)
+    if (existingHash != ""):
+        return jsonify(existingHash), status.HTTP_400_BAD_REQUEST
+    # check if file duplicate in database
+    recognizedLists = djv.recognize(
+        FileRecognizer, audio_uploads_dir+'/'+audioFile.filename)
+    # print(recognizedLists)
+    recognizedResults = list(recognizedLists['results'])
+    for song in recognizedResults:
+        if (song['input_confidence'] > 0.8):
+            print(f"audio already existed with hash id {song['file_sha1']}")
+            return jsonify(song['file_sha1']), status.HTTP_400_BAD_REQUEST
+    return jsonify("File is unique"), status.HTTP_200_OK
